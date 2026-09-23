@@ -19,7 +19,7 @@
         <!-- Header -->
         <div class="text-center mb-8">
             <h1 class="text-3xl font-bold text-slate-800">🔍 ค้นหาและกรองข้อมูลพนักงาน</h1>
-            <p class="text-slate-500 mt-2">พิมพ์ค้นหาทั่วไป หรือเลือกตัวกรอง GP และตำแหน่งด้านล่าง (ติ๊กเลือกสะสมข้ามการค้นหาได้)</p>
+            <p class="text-slate-500 mt-2">พิมพ์ค้นหาทั่วไป หรือเลือกตัวกรอง GP และตำแหน่งด้านล่าง (เลือก GP แล้วตำแหน่งจะกรองตาม GP ที่เลือก)</p>
         </div>
 
         <!-- Search Box & Filters Container -->
@@ -93,7 +93,7 @@
         let uniqueGps = [];
         let uniquePositions = [];
 
-        // ใช้เก็บค่าที่ผู้ใช้เคยติ๊กเลือกไว้ แม้จะพิมพ์ค้นหาใหม่ในช่องฟิลเตอร์เพื่อหาค่าอื่นเพิ่ม
+        // ตัวแปรจำสถานะการติ๊กเลือก
         let selectedGps = new Set();
         let selectedPositions = new Set();
 
@@ -114,8 +114,7 @@
                     uniqueGps = [...new Set(employeeData.map(emp => emp['Function_Group_Name'] || '-'))].sort();
                     uniquePositions = [...new Set(employeeData.map(emp => emp['Position_Title_Job'] || '-'))].sort();
 
-                    renderGpCheckboxes(uniqueGps);
-                    renderPosCheckboxes(uniquePositions);
+                    updateAllCheckboxes();
                     filterEmployees();
                 },
                 error: function(err) {
@@ -125,11 +124,20 @@
             });
         });
 
-        // สร้าง Checkbox GP พร้อมรักษาสถานะที่ติ๊กไว้
-        function renderGpCheckboxes(gps) {
+        // อัปเดตการแสดงผล Checkbox ทั้งสองฝั่ง
+        function updateAllCheckboxes() {
+            updateGpCheckboxes();
+            updatePosCheckboxes();
+        }
+
+        // สร้าง Checkbox GP ตามช่องค้นหา GP
+        function updateGpCheckboxes() {
+            const query = document.getElementById('gpSearch').value.toLowerCase();
+            const filteredGps = uniqueGps.filter(gp => gp.toLowerCase().includes(query));
+            
             const container = document.getElementById('gpCheckboxContainer');
             container.innerHTML = '';
-            gps.forEach((gp, index) => {
+            filteredGps.forEach((gp, index) => {
                 const isChecked = selectedGps.has(gp);
                 const div = document.createElement('div');
                 div.className = "flex items-center space-x-2";
@@ -141,11 +149,26 @@
             });
         }
 
-        // สร้าง Checkbox Position พร้อมรักษาสถานะที่ติ๊กไว้
-        function renderPosCheckboxes(positions) {
+        // สร้าง Checkbox Position โดยกรองตาม GP ที่ถูกเลือกไว้ก่อนหน้า + ช่องค้นหา Position
+        function updatePosCheckboxes() {
+            const query = document.getElementById('posSearch').value.toLowerCase();
+            
+            // หากมีการเลือก GP ไว้ ให้ดึงเฉพาะตำแหน่งที่มีอยู่ใน GP เหล่านั้นเท่านั้น
+            let availablePositions = uniquePositions;
+            if (selectedGps.size > 0) {
+                const validPositionsInSelectedGps = new Set(
+                    employeeData
+                        .filter(emp => selectedGps.has(emp['Function_Group_Name'] || '-'))
+                        .map(emp => emp['Position_Title_Job'] || '-')
+                );
+                availablePositions = uniquePositions.filter(pos => validPositionsInSelectedGps.has(pos));
+            }
+
+            const filteredPos = availablePositions.filter(pos => pos.toLowerCase().includes(query));
+
             const container = document.getElementById('posCheckboxContainer');
             container.innerHTML = '';
-            positions.forEach((pos, index) => {
+            filteredPos.forEach((pos, index) => {
                 const isChecked = selectedPositions.has(pos);
                 const div = document.createElement('div');
                 div.className = "flex items-center space-x-2";
@@ -164,6 +187,8 @@
             } else {
                 selectedGps.delete(checkbox.value);
             }
+            // เมื่อ GP เปลี่ยน ต้องอัปเดตรายการ Checkbox ตำแหน่งใหม่ให้สัมพันธ์กันด้วย
+            updatePosCheckboxes();
             filterEmployees();
         }
 
@@ -177,21 +202,7 @@
             filterEmployees();
         }
 
-        // ฟังก์ชันกรองรายชื่อ GP ตามช่องพิมพ์ค้นหาเฉพาะ GP (โดยไม่ทำลายค่าที่ติ๊กสะสมไว้)
-        function updateGpCheckboxes() {
-            const query = document.getElementById('gpSearch').value.toLowerCase();
-            const filteredGps = uniqueGps.filter(gp => gp.toLowerCase().includes(query));
-            renderGpCheckboxes(filteredGps);
-        }
-
-        // ฟังก์ชันกรองรายชื่อ Position ตามช่องพิมพ์ค้นหาเฉพาะ Position (โดยไม่ทำลายค่าที่ติ๊กสะสมไว้)
-        function updatePosCheckboxes() {
-            const query = document.getElementById('posSearch').value.toLowerCase();
-            const filteredPos = uniquePositions.filter(pos => pos.toLowerCase().includes(query));
-            renderPosCheckboxes(filteredPos);
-        }
-
-        // ฟังก์ชันล้างตัวกรองทั้งหมด (เคลียร์ความจำ Set และช่องค้นหาทั้งหมด)
+        // ฟังก์ชันล้างตัวกรองทั้งหมด
         function resetFilters() {
             document.getElementById('searchInput').value = '';
             document.getElementById('gpSearch').value = '';
@@ -200,8 +211,7 @@
             selectedGps.clear();
             selectedPositions.clear();
             
-            renderGpCheckboxes(uniqueGps);
-            renderPosCheckboxes(uniquePositions);
+            updateAllCheckboxes();
             filterEmployees();
         }
 
@@ -213,17 +223,17 @@
                 const empGp = emp['Function_Group_Name'] || '-';
                 const empPos = emp['Position_Title_Job'] || '-';
 
-                // 1. เงื่อนไข GP Checkbox (ถ้ามีค่าใน selectedGps จะต้องตรงกับอย่างน้อย 1 ค่าที่สะสมติ๊กไว้)
+                // 1. เงื่อนไข GP Checkbox
                 if (selectedGps.size > 0 && !selectedGps.has(empGp)) {
                     return false;
                 }
 
-                // 2. เงื่อนไข Position Checkbox (ถ้ามีค่าใน selectedPositions จะต้องตรงกับอย่างน้อย 1 ค่าที่สะสมติ๊กไว้)
+                // 2. เงื่อนไข Position Checkbox
                 if (selectedPositions.size > 0 && !selectedPositions.has(empPos)) {
                     return false;
                 }
 
-                // 3. เงื่อนไข Search ทั่วไป (Multi-keyword AND)
+                // 3. เงื่อนไข Search ทั่วไป
                 if (keywords.length > 0) {
                     const fullRowText = Object.values(emp).join(' ').toLowerCase();
                     const matchesAllKeywords = keywords.every(keyword => fullRowText.includes(keyword));
