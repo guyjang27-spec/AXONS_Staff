@@ -19,14 +19,14 @@
         <!-- Header -->
         <div class="text-center mb-8">
             <h1 class="text-3xl font-bold text-slate-800">🔍 ค้นหาข้อมูลพนักงาน</h1>
-            <p class="text-slate-500 mt-2">พิมพ์ชื่อเล่น, ชื่อไทย, ชื่ออังกฤษ, ตำแหน่ง, GP หรือ Product เพื่อค้นหาข้อมูล</p>
+            <p class="text-slate-500 mt-2">พิมพ์คำที่ต้องการค้นหา (ชื่อ, ตำแหน่ง, Product, GP ฯลฯ)</p>
         </div>
 
         <!-- Search Box -->
         <div class="mb-8">
             <div class="relative max-w-xl mx-auto">
                 <input type="text" id="searchInput" oninput="filterEmployees()" 
-                    placeholder="พิมพ์ชื่อ, ตำแหน่ง, GP, Product..." 
+                    placeholder="พิมพ์ค้นหา เช่น book, ชื่อ, ตำแหน่ง..." 
                     class="w-full px-5 py-4 pl-12 rounded-2xl border border-slate-200 shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-lg bg-white">
                 <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-400">
                     <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -83,7 +83,7 @@
             container.innerHTML = '';
             
             if (data.length === 0) {
-                emptyState.classList.remove('hidden');
+                emptyState.classList.add('hidden');
                 resultCount.textContent = '';
                 return;
             }
@@ -95,7 +95,7 @@
                 const nickname = emp['ชื่อเล่น'] || '-';
                 const tNamekey = emp['T-namekey'] || '-';
                 const namekey = emp['NAMEKEY'] || '-';
-                const position = emp['Position_Title_Job'] || '-'; // ดึงข้อมูลตำแหน่ง
+                const position = emp['Position_Title_Job'] || '-';
                 const gp = emp['Function_Group_Name'] || '-';
                 const product = emp['Product'] || '-';
                 const email = emp['Email_Address_Business_Email_Information'] || '-';
@@ -112,7 +112,6 @@
                         </div>
                         <p class="text-xs text-slate-400 font-mono mb-2">EN: ${namekey}</p>
                         
-                        <!-- แสดงตำแหน่งงาน -->
                         <div class="mb-4 text-sm font-medium text-indigo-600 bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-100">
                             💼 ${position}
                         </div>
@@ -153,22 +152,9 @@
             }
 
             const filtered = employeeData.filter(emp => {
-                const nickname = (emp['ชื่อเล่น'] || '').toLowerCase();
-                const tNamekey = (emp['T-namekey'] || '').toLowerCase();
-                const namekey = (emp['NAMEKEY'] || '').toLowerCase();
-                const position = (emp['Position_Title_Job'] || '').toLowerCase();
-                const gp = (emp['Function_Group_Name'] || '').toLowerCase();
-                
-                // 1. ดึงข้อมูล Product และแปลงเป็นตัวพิมพ์เล็ก
-                const product = (emp['Product'] || '').toLowerCase(); 
-
-                // 2. ตรวจสอบว่า query ที่ผู้ใช้พิมพ์ มีอยู่ในตัวแปรใดตัวแปรหนึ่งหรือไม่
-                return nickname.includes(query) ||
-                       tNamekey.includes(query) ||
-                       namekey.includes(query) ||
-                       position.includes(query) ||
-                       gp.includes(query) ||
-                       product.includes(query); // 3. เพิ่มการตรวจสอบ product เข้าไป
+                // ดึงข้อมูลทุกช่องในแถวนั้นมารวมกันเป็นข้อความเดียวยาวๆ แล้วค้นหาคำที่พิมพ์ทันที
+                const fullRowText = Object.values(emp).join(' ').toLowerCase();
+                return fullRowText.includes(query);
             });
 
             renderEmployees(filtered);
