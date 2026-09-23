@@ -19,7 +19,7 @@
         <!-- Header -->
         <div class="text-center mb-8">
             <h1 class="text-3xl font-bold text-slate-800">🔍 ค้นหาและกรองข้อมูลพนักงาน</h1>
-            <p class="text-slate-500 mt-2">พิมพ์ค้นหาทั่วไป หรือเลือกตัวกรอง GP และตำแหน่งด้านล่าง</p>
+            <p class="text-slate-500 mt-2">พิมพ์ค้นหาทั่วไป หรือเลือกตัวกรอง GP และตำแหน่งด้านล่าง (ติ๊กเลือกสะสมข้ามการค้นหาได้)</p>
         </div>
 
         <!-- Search Box & Filters Container -->
@@ -93,6 +93,10 @@
         let uniqueGps = [];
         let uniquePositions = [];
 
+        // ใช้เก็บค่าที่ผู้ใช้เคยติ๊กเลือกไว้ แม้จะพิมพ์ค้นหาใหม่ในช่องฟิลเตอร์เพื่อหาค่าอื่นเพิ่ม
+        let selectedGps = new Set();
+        let selectedPositions = new Set();
+
         // ลิงก์ CSV จาก Google Sheet ของคุณ
         const csvUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSt4DgynOH7qvZUgBPj6eL2TeddHfXM_yzRyl5L__gPVC_-iPfuCqhtYhfElvFA3hbUwLmDKw4LkX7y/pub?gid=0&single=true&output=csv';
 
@@ -121,60 +125,83 @@
             });
         });
 
-        // สร้าง Checkbox GP
+        // สร้าง Checkbox GP พร้อมรักษาสถานะที่ติ๊กไว้
         function renderGpCheckboxes(gps) {
             const container = document.getElementById('gpCheckboxContainer');
             container.innerHTML = '';
             gps.forEach((gp, index) => {
+                const isChecked = selectedGps.has(gp);
                 const div = document.createElement('div');
                 div.className = "flex items-center space-x-2";
                 div.innerHTML = `
-                    <input type="checkbox" id="gp_${index}" value="${gp}" onchange="filterEmployees()" class="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 h-4 w-4">
+                    <input type="checkbox" id="gp_${index}" value="${gp}" ${isChecked ? 'checked' : ''} onchange="handleGpChange(this)" class="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 h-4 w-4">
                     <label for="gp_${index}" class="text-slate-700 truncate cursor-pointer text-xs" title="${gp}">${gp}</label>
                 `;
                 container.appendChild(div);
             });
         }
 
-        // สร้าง Checkbox Position
+        // สร้าง Checkbox Position พร้อมรักษาสถานะที่ติ๊กไว้
         function renderPosCheckboxes(positions) {
             const container = document.getElementById('posCheckboxContainer');
             container.innerHTML = '';
             positions.forEach((pos, index) => {
+                const isChecked = selectedPositions.has(pos);
                 const div = document.createElement('div');
                 div.className = "flex items-center space-x-2";
                 div.innerHTML = `
-                    <input type="checkbox" id="pos_${index}" value="${pos}" onchange="filterEmployees()" class="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 h-4 w-4">
+                    <input type="checkbox" id="pos_${index}" value="${pos}" ${isChecked ? 'checked' : ''} onchange="handlePosChange(this)" class="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 h-4 w-4">
                     <label for="pos_${index}" class="text-slate-700 truncate cursor-pointer text-xs" title="${pos}">${pos}</label>
                 `;
                 container.appendChild(div);
             });
         }
 
-        // ฟังก์ชันกรองรายชื่อ GP ตามช่องพิมพ์ค้นหาเฉพาะ GP
+        // จัดการเมื่อมีการติ๊กเลือก GP
+        function handleGpChange(checkbox) {
+            if (checkbox.checked) {
+                selectedGps.add(checkbox.value);
+            } else {
+                selectedGps.delete(checkbox.value);
+            }
+            filterEmployees();
+        }
+
+        // จัดการเมื่อมีการติ๊กเลือก Position
+        function handlePosChange(checkbox) {
+            if (checkbox.checked) {
+                selectedPositions.add(checkbox.value);
+            } else {
+                selectedPositions.delete(checkbox.value);
+            }
+            filterEmployees();
+        }
+
+        // ฟังก์ชันกรองรายชื่อ GP ตามช่องพิมพ์ค้นหาเฉพาะ GP (โดยไม่ทำลายค่าที่ติ๊กสะสมไว้)
         function updateGpCheckboxes() {
             const query = document.getElementById('gpSearch').value.toLowerCase();
             const filteredGps = uniqueGps.filter(gp => gp.toLowerCase().includes(query));
             renderGpCheckboxes(filteredGps);
         }
 
-        // ฟังก์ชันกรองรายชื่อ Position ตามช่องพิมพ์ค้นหาเฉพาะ Position
+        // ฟังก์ชันกรองรายชื่อ Position ตามช่องพิมพ์ค้นหาเฉพาะ Position (โดยไม่ทำลายค่าที่ติ๊กสะสมไว้)
         function updatePosCheckboxes() {
             const query = document.getElementById('posSearch').value.toLowerCase();
             const filteredPos = uniquePositions.filter(pos => pos.toLowerCase().includes(query));
             renderPosCheckboxes(filteredPos);
         }
 
-        // ฟังก์ชันล้างตัวกรองทั้งหมด
+        // ฟังก์ชันล้างตัวกรองทั้งหมด (เคลียร์ความจำ Set และช่องค้นหาทั้งหมด)
         function resetFilters() {
             document.getElementById('searchInput').value = '';
             document.getElementById('gpSearch').value = '';
             document.getElementById('posSearch').value = '';
+            
+            selectedGps.clear();
+            selectedPositions.clear();
+            
             renderGpCheckboxes(uniqueGps);
             renderPosCheckboxes(uniquePositions);
-            
-            // เคลียร์ค่า check ทุกตัว
-            document.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = false);
             filterEmployees();
         }
 
@@ -182,23 +209,17 @@
             const rawQuery = document.getElementById('searchInput').value.toLowerCase().trim();
             const keywords = rawQuery.split(/[\s,]+/).filter(keyword => keyword.length > 0);
 
-            // ดึง GP ที่ถูกติ๊กเลือก
-            const selectedGps = Array.from(document.querySelectorAll('#gpCheckboxContainer input[type="checkbox"]:checked')).map(cb => cb.value);
-            
-            // ดึง ตำแหน่ง ที่ถูกติ๊กเลือก
-            const selectedPositions = Array.from(document.querySelectorAll('#posCheckboxContainer input[type="checkbox"]:checked')).map(cb => cb.value);
-
             const filtered = employeeData.filter(emp => {
                 const empGp = emp['Function_Group_Name'] || '-';
                 const empPos = emp['Position_Title_Job'] || '-';
 
-                // 1. เงื่อนไข GP Checkbox (ถ้ามีการติ๊ก จะต้องตรงกับอย่างน้อย 1 ในที่ติ๊ก)
-                if (selectedGps.length > 0 && !selectedGps.includes(empGp)) {
+                // 1. เงื่อนไข GP Checkbox (ถ้ามีค่าใน selectedGps จะต้องตรงกับอย่างน้อย 1 ค่าที่สะสมติ๊กไว้)
+                if (selectedGps.size > 0 && !selectedGps.has(empGp)) {
                     return false;
                 }
 
-                // 2. เงื่อนไข Position Checkbox (ถ้ามีการติ๊ก จะต้องตรงกับอย่างน้อย 1 ในที่ติ๊ก)
-                if (selectedPositions.length > 0 && !selectedPositions.includes(empPos)) {
+                // 2. เงื่อนไข Position Checkbox (ถ้ามีค่าใน selectedPositions จะต้องตรงกับอย่างน้อย 1 ค่าที่สะสมติ๊กไว้)
+                if (selectedPositions.size > 0 && !selectedPositions.has(empPos)) {
                     return false;
                 }
 
