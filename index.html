@@ -111,8 +111,15 @@
         let selectedPositions = new Set();
 
         const csvUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSt4DgynOH7qvZUgBPj6eL2TeddHfXM_yzRyl5L__gPVC_-iPfuCqhtYhfElvFA3hbUwLmDKw4LkX7y/pub?gid=0&single=true&output=csv';
+        
+        // Google Apps Script Web App URL ที่คุณให้มา
+        const scriptUrl = 'https://script.google.com/macros/s/AKfycbzL7Mfty5asz3n4vzaG1Ho12dYHN_Cg-XlCpFv6cRgESe-_ZK0JzAA9X-0OALgefbutog/exec';
 
         window.addEventListener('DOMContentLoaded', () => {
+            loadData();
+        });
+
+        function loadData() {
             Papa.parse(csvUrl, {
                 download: true,
                 header: true,
@@ -132,7 +139,7 @@
                     console.error(err);
                 }
             });
-        });
+        }
 
         function updateAllCheckboxes() {
             updateGpCheckboxes();
@@ -260,7 +267,6 @@
 
         function filterEmployees() {
             const rawQuery = document.getElementById('searchInput').value.toLowerCase().trim();
-            // แยกคำด้วยเครื่องหมายคอมมา (,) หรือขึ้นบรรทัดใหม่ และตัดช่องว่างส่วนเกินออก
             const keywords = rawQuery.split(',').map(k => k.trim()).filter(k => k.length > 0);
 
             const filtered = employeeData.filter(emp => {
@@ -277,7 +283,6 @@
 
                 if (keywords.length > 0) {
                     const fullRowText = Object.values(emp).join(' ').toLowerCase();
-                    // เปลี่ยนจาก keywords.every เป็น keywords.some เพื่อให้หาเจอขอแค่ตรงกับคำใดคำหนึ่งในคอมมา
                     const matchesAnyKeyword = keywords.some(keyword => fullRowText.includes(keyword));
                     if (!matchesAnyKeyword) return false;
                 }
@@ -304,7 +309,7 @@
             emptyState.classList.add('hidden');
             resultCount.textContent = `พบข้อมูลทั้งหมด ${data.length} รายการ`;
 
-            data.forEach(emp => {
+            data.forEach((emp, index) => {
                 const nickname = emp['ชื่อเล่น'] || '-';
                 const tNamekey = emp['T-namekey'] || '-';
                 const namekey = emp['NAMEKEY'] || '-';
@@ -313,19 +318,32 @@
                 const product = emp['Product'] || '-';
                 const email = emp['Email_Address_Business_Email_Information'] || '-';
                 const mobile = emp['Phone_Number'] || '-';
+                
+                const uniqueKey = namekey !== '-' ? namekey : email;
 
                 const card = document.createElement('div');
                 card.className = "bg-white rounded-2xl p-6 border border-slate-100 shadow-sm hover:shadow-md transition duration-200 flex flex-col justify-between";
                 
                 card.innerHTML = `
                     <div>
-                        <div class="flex justify-between items-start mb-3">
+                        <!-- ส่วนหัว: ชื่อไทย และ ชื่ออังกฤษ (ปรับให้เด่นชัดเท่ากัน) -->
+                        <div class="mb-3 space-y-1">
                             <h3 class="text-xl font-bold text-slate-800">${tNamekey}</h3>
-                            <span class="bg-indigo-50 text-indigo-700 text-xs font-semibold px-2.5 py-1 rounded-full">ชื่อเล่น: ${nickname}</span>
+                            <div class="text-base font-semibold text-slate-600 font-mono tracking-wide">EN: ${namekey}</div>
                         </div>
-                        <p class="text-xs text-slate-400 font-mono mb-2">EN: ${namekey}</p>
+
+                        <!-- ส่วนข้อมูล ชื่อเล่น พร้อมปุ่ม Edit -->
+                        <div class="flex items-center justify-between bg-slate-50 px-3 py-2 rounded-xl border border-slate-100 mb-3">
+                            <div class="text-sm">
+                                <span class="text-slate-500 font-medium">ชื่อเล่น:</span> 
+                                <span id="nickname-val-${index}" class="font-semibold text-slate-700">${nickname}</span>
+                            </div>
+                            <button onclick="editField('${uniqueKey}', 'ชื่อเล่น', ${index})" class="text-xs bg-white border border-slate-200 hover:bg-indigo-50 hover:text-indigo-600 text-slate-600 px-2.5 py-1 rounded-lg transition shadow-sm">
+                                ✏️ แก้ไขชื่อเล่น
+                            </button>
+                        </div>
                         
-                        <div class="mb-4 text-sm font-medium text-indigo-600 bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-100">
+                        <div class="mb-4 text-sm font-medium text-indigo-600 bg-indigo-50/50 px-3 py-2 rounded-lg border border-indigo-100/50">
                             💼 ${position}
                         </div>
                         
@@ -334,9 +352,14 @@
                                 <span class="text-slate-500 font-medium">GP:</span>
                                 <span class="text-slate-700 text-right font-medium">${gp}</span>
                             </div>
-                            <div class="flex justify-between">
+                            <div class="flex justify-between items-center">
                                 <span class="text-slate-500 font-medium">Product:</span>
-                                <span class="text-slate-700 text-right">${product}</span>
+                                <div class="flex items-center space-x-2">
+                                    <span id="product-val-${index}" class="text-slate-700 text-right">${product}</span>
+                                    <button onclick="editField('${uniqueKey}', 'Product', ${index})" class="text-xs bg-slate-50 border border-slate-200 hover:bg-indigo-50 hover:text-indigo-600 text-slate-600 px-2 py-0.5 rounded transition">
+                                        ✏️
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -353,6 +376,35 @@
                     </div>
                 `;
                 container.appendChild(card);
+            });
+        }
+
+        // ฟังก์ชันจัดการเมื่อกดปุ่ม Edit
+        function editField(uniqueKey, fieldName, index) {
+            const currentValElement = document.getElementById(`${fieldName === 'ชื่อเล่น' ? 'nickname' : 'product'}-val-${index}`);
+            const currentValue = currentValElement.textContent.trim() === '-' ? '' : currentValElement.textContent.trim();
+            
+            const newValue = prompt(`แก้ไข ${fieldName}:`, currentValue);
+            if (newValue === null) return; // กดยกเลิก
+
+            // อัปเดตหน้าจอทันที
+            currentValElement.textContent = newValue;
+
+            // ส่งข้อมูลไปบันทึกที่ Google Sheet ผ่าน Google Apps Script Web App
+            fetch(scriptUrl, {
+                method: 'POST',
+                mode: 'no-cors',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    key: uniqueKey,
+                    field: fieldName,
+                    value: newValue
+                })
+            }).then(() => {
+                alert(`บันทึก ${fieldName} ไปยัง Google Sheet สำเร็จ!`);
+            }).catch(err => {
+                console.error(err);
+                alert('เกิดข้อผิดพลาดในการบันทึกข้อมูล');
             });
         }
     </script>
